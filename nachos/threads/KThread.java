@@ -272,10 +272,40 @@ public class KThread {
      * call is not guaranteed to return. This thread must not be the current
      * thread.
      */
+    
+    /**
+     * Pseudocode
+
+			join() {
+			  Disable interrupts;
+			  if (joinQueue not be initiated) {
+			      create a new thread queue (joinQueue) with transfer priority flag opened
+			      joinQueue acquires this thread as holder
+			  }
+			  If (CurrentThread != self) and (status is not Finished) {
+			      add current thread to join queue
+			      sleep current thread 
+			  }
+			
+			  Re-enable interrupts;
+}
+     */
     public void join() {
 	Lib.debug(dbgThread, "Joining to thread: " + toString());
 
 	Lib.assertTrue(this != currentThread);
+	
+	joinLock.acquire();
+	if(status == statusFinished){
+		joinLock.release();
+	}
+	else{
+		Machine.interrupt().disable();
+		this.joinQueue.waitForAccess(currentThread);
+		Machine.interrupt().enable();
+		isFinished.sleep();
+		joinLock.release();
+	}
 
     }
 
@@ -439,6 +469,14 @@ public class KThread {
     private int id = numCreated++;
     /** Number of times the KThread constructor was called. */
     private static int numCreated = 0;
+    
+    
+    // Question One
+    
+    private ThreadQueue joinQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+    private Condition2 isFinished;
+    private static Lock joinLock = new Lock();
+    
 
     private static ThreadQueue readyQueue = null;
     private static KThread currentThread = null;
