@@ -3,8 +3,15 @@ package nachos.threads;
 import nachos.machine.*;
 
 import java.util.TreeSet;
+
+import java.util.List;
+
+import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Set;
 
 /**
  * A scheduler that chooses threads based on their priorities.
@@ -141,9 +148,19 @@ public class PriorityScheduler extends Scheduler {
 	}
 
 	public KThread nextThread() {
-	    Lib.assertTrue(Machine.interrupt().disabled());
-	    // implement me
-	    return null;
+		Lib.assertTrue(Machine.interrupt().disabled());
+
+        if (lockHolder != null) {
+            lockHolder.donation.remove(this);
+            lockHolder.update();
+        }
+
+        ThreadState state = pickNextThread();
+        if (state == null)
+            return null;
+        state.acquire(this);
+        return state.thread;
+
 	}
 
 	/**
@@ -154,9 +171,16 @@ public class PriorityScheduler extends Scheduler {
 	 *		return.
 	 */
 	protected ThreadState pickNextThread() {
-	    // implement me
-	    return null;
-	}
+		 if (waitQueue.isEmpty())
+             return null;
+
+         ThreadState prior = waitQueue.get(0);
+         for (ThreadState state : waitQueue)
+             if (state.getEffectivePriority() > prior.getEffectivePriority())
+                 prior = state;
+         return prior;
+		}
+
 	
 	public void print() {
 	    Lib.assertTrue(Machine.interrupt().disabled());
@@ -168,6 +192,8 @@ public class PriorityScheduler extends Scheduler {
 	 * threads to the owning thread.
 	 */
 	public boolean transferPriority;
+	public List<ThreadState> waitQueue = new LinkedList<ThreadState>();
+	ThreadState lockHolder = null;
     }
 
     /**
@@ -177,7 +203,13 @@ public class PriorityScheduler extends Scheduler {
      *
      * @see	nachos.threads.KThread#schedulingState
      */
-    protected class ThreadState {
+	protected class ThreadState implements Comparable<ThreadState> {
+        public int compareTo(ThreadState state) {
+            if (priority == state.priority)
+                return 0;
+            return priority < state.priority ? -1 : 1;
+        }
+
 	/**
 	 * Allocate a new <tt>ThreadState</tt> object and associate it with the
 	 * specified thread.
@@ -205,9 +237,32 @@ public class PriorityScheduler extends Scheduler {
 	 * @return	the effective priority of the associated thread.
 	 */
 	public int getEffectivePriority() {
-	    // implement me
-	    return priority;
+        return dfs(new HashSet<ThreadState>());
 	}
+
+    public int dfs(Set<ThreadState> visited) {
+        if (visited.contains(this))
+            return priority;
+
+        effective = priority;
+
+        for (PriorityQueue queue : donation)
+            if (queue.transferPriority)
+                for (ThreadState state : queue.waitQueue) {
+                    visited.add(this);
+                    effective = Math.max(effective, state.dfs(visited));
+                    visited.remove(this);
+                }
+
+        if (((PriorityQueue)thread.waitQueue).transferPriority)
+            for (ThreadState state : ((PriorityQueue)this.thread.waitQueue).waitQueue) {
+                visited.add(this);
+                effective = Math.max(effective, state.dfs(visited));
+                visited.remove(this);
+            }
+
+        return effective;
+    }
 
 	/**
 	 * Set the priority of the associated thread to the specified value.
@@ -220,7 +275,7 @@ public class PriorityScheduler extends Scheduler {
 	    
 	    this.priority = priority;
 	    
-	    // implement me
+	    update();
 	}
 
 	/**
@@ -236,7 +291,9 @@ public class PriorityScheduler extends Scheduler {
 	 * @see	nachos.threads.ThreadQueue#waitForAccess
 	 */
 	public void waitForAccess(PriorityQueue waitQueue) {
-	    // implement me
+        waitQueue.waitQueue.add(this);
+        if (waitQueue.lockHolder != null)
+            waitQueue.lockHolder.update();
 	}
 
 	/**
@@ -250,12 +307,26 @@ public class PriorityScheduler extends Scheduler {
 	 * @see	nachos.threads.ThreadQueue#nextThread
 	 */
 	public void acquire(PriorityQueue waitQueue) {
-	    // implement me
+		 waitQueue.waitQueue.remove(waitQueue.lockHolder = this);
+         donation.add(waitQueue);
+         update();
+
 	}	
 
+    public void update() {
+        effective = null;
+        getEffectivePriority();
+    }
+
+    
+    
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;
 	/** The priority of the associated thread. */
-	protected int priority;
+	/** The priority of the associated thread. */
+    protected int priority = priorityMinimum;
+    protected Integer effective = null;
+    protected Queue<PriorityQueue> donation = new ArrayDeque<PriorityQueue>();
+
     }
 }
