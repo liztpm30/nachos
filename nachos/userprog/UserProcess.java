@@ -385,7 +385,29 @@ public class UserProcess {
     }
     
     private int handleOpen (int arg){
-    	return 0;
+
+    	//Looking for the file in memory
+        String filename = readVirtualMemoryString(arg, MAXSTRLEN);         
+
+	    Lib.debug(dbgProcess, "Opening file: "+filename);                     
+
+        // Opening the file
+        OpenFile file  = UserKernel.fileSystem.open(filename, false);    
+
+        if (file == null) {                                              
+            return -1;                                                     
+        }                                                                 
+        else {                                                            
+            int fileHandle = findEmptyFileDescriptor();                     
+            if (fileHandle < 0)                                            
+                return -1;                                                 
+            else {                                                         
+                fds[fileHandle].filename = filename;                       
+                fds[fileHandle].file = file;                             
+                fds[fileHandle].position = 0;                              
+                return fileHandle;                                         
+            }                                                              
+        }                                                                 
     }
     
     private int handleRead (int arg1, int ar2, int arg3){
