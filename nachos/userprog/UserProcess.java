@@ -490,11 +490,38 @@ public class UserProcess {
     }
     
     private int handleUnlink (int arg){
-    	return 0;
+
+        boolean unlinked = true;
+        int file;
+
+        // read file in virtual memory
+        String filename = readVirtualMemoryString(arg, MAXSTRLEN);      
+
+	    Lib.debug(dbgProcess, "filename: " + filename);
+	
+	    
+	    for (int i = 0; i < MAXFD; i++) {                 
+            if (fds[i].filename == filename)        
+            	file = i;                             
+        }                                          
+
+	    file = -1;
+	    
+        if (file < 0) {                                   
+
+        	unlinked = UserKernel.fileSystem.remove(fds[file].filename); 
+        }                                                                     
+        else { 
+        	
+             fds[file].toRemove = true;                             
+        }                                        
+
+        return unlinked ? 0 : -1;  
     }
 
     private static final int
-        syscallHalt = 0,
+    
+    syscallHalt = 0,
 	syscallExit = 1,
 	syscallExec = 2,
 	syscallJoin = 3,
