@@ -410,8 +410,32 @@ public class UserProcess {
         }                                                                 
     }
     
-    private int handleRead (int arg1, int ar2, int arg3){
-    	return 0;
+    private int handleRead (int arg1, int arg2, int arg3){
+    	
+    	Lib.debug(dbgProcess, "handleRead()");                            
+        
+        int handle = arg1;                   
+        int vaddr = arg2;              
+        int bufsize = arg3;                                         
+
+        if (handle < 0 || handle > MAXFD                                  
+                || fds[handle].file == null)                              
+            return -1;                                                    
+
+        FileDescriptor fd = fds[handle];                                  
+        byte[] buf = new byte[bufsize];                                   
+
+        // read file
+        int fvar = fd.file.read(fd.position, buf, 0, bufsize);          
+
+        if (fvar < 0) {                                                 
+            return -1;                                                    
+        }                                                                 
+        else {                                                            
+            int number = writeVirtualMemory(vaddr, buf);                  
+            fd.position = fd.position + number;                           
+            return fvar;                                                
+        }  
     }
     
     private int handleWrite (int arg1, int ar2, int arg3){
