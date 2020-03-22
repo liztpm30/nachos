@@ -5,6 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.LinkedList;
 
 /**
  * Encapsulates the state of a user process that is not contained in its
@@ -23,6 +24,12 @@ public class UserProcess {
      * Allocate a new process.
      */
     public UserProcess() {
+    	
+    //Creating file descriptors
+    	for (int i=0; i<MAXFD; i++) {                               
+            fds[i] = new FileDescriptor();                                 
+       } 
+    	
 	int numPhysPages = Machine.processor().getNumPhysPages();
 	pageTable = new TranslationEntry[numPhysPages];
 	for (int i=0; i<numPhysPages; i++)
@@ -345,7 +352,57 @@ public class UserProcess {
 	Lib.assertNotReached("Machine.halt() did not halt machine!");
 	return 0;
     }
+    
+    private int handleCreate (int arg){
+    	
+    	//Debugging
+    	Lib.debug(dbgProcess, "handleCreate()");
+    	
+    	//Looking for the file in memory
+    	String filename = readVirtualMemoryString(arg, MAXSTRLEN);
+    	
+    	//Debugging
+    	Lib.debug(dbgProcess, "filename: "+filename);
+    	
+    	//Open file
+    	OpenFile fvar = UserKernel.fileSystem.open(filename, true);
+    	
+    	 if (fvar == null) {                                           
+             return -1;                                                     
+         }                                                                  
+         else {                                                            
+             int fileHandle = findEmptyFileDescriptor();                    
+             if (fileHandle < 0)                                           
+                 return -1;                                                  
+             else {                                                         
+                 fds[fileHandle].filename = filename;                       
+                 fds[fileHandle].file = fvar;                             
+                 fds[fileHandle].position = 0;                              
+                 return fileHandle;                                         
+             }                                                               
+         } 
+    	
+    }
+    
+    private int handleOpen (int arg){
+    	return 0;
+    }
+    
+    private int handleRead (int arg1, int ar2, int arg3){
+    	return 0;
+    }
+    
+    private int handleWrite (int arg1, int ar2, int arg3){
+    	return 0;
+    }
 
+    private int handleClose (int arg){
+    	return 0;
+    }
+    
+    private int handleUnlink (int arg){
+    	return 0;
+    }
 
     private static final int
         syscallHalt = 0,
@@ -391,7 +448,18 @@ public class UserProcess {
 	switch (syscall) {
 	case syscallHalt:
 	    return handleHalt();
-
+	case syscallCreate:
+		return handleCreate(a0);
+	case syscallOpen:
+		return handleOpen(a0);
+	case syscallRead:
+		return handleRead(a0, a1, a2);
+	case syscallWrite:
+		return handleWrite(a0, a1, a2);
+	case syscallClose:
+		return handleClose(a0);
+	case syscallUnlink:
+		return handleUnlink(a0);
 
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -429,6 +497,15 @@ public class UserProcess {
 	    Lib.assertNotReached("Unexpected exception");
 	}
     }
+    
+    private int findEmptyFileDescriptor() {              
+        for (int i = 0; i < 16; i++) {                  
+            if (fds[i].file == null)                       
+                return i;                                  
+        }                                                  
+
+        return -1;                                          
+    }  
 
     /** The program being run by this process. */
     protected Coff coff;
@@ -446,4 +523,54 @@ public class UserProcess {
 	
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+    
+    
+    public class FileDescriptor {                                 
+        public FileDescriptor() {                                 
+        }                                                         
+        private  String   filename = "";   // opened file name    
+        private  OpenFile file = null;     // opened file object  
+        private  int      position = 0;    // IO position        
+
+        private  boolean  toRemove = false;// if need to remove   
+                                           // this file           
+                                            
+    }                                                            
+    /* maximum number of opened files per process                       */
+    public static final int MAXFD = 16;                           
+
+    /* standard input file descriptor                                   */
+    public static final int STDIN = 0;                             
+
+    /* standard output file descriptor                                  */
+    public static final int STDOUT = 1;                           
+
+    /* maximum length of strings passed as arguments to system calls    */
+    public static final int MAXSTRLEN = 256;                        
+
+    /* pid of root process(first user process)                          */
+    public static final int ROOT = 1;                               
+
+    /* file descriptors per process                                     */
+    private FileDescriptor fds[] = new FileDescriptor[MAXFD];        
+
+    /* number of opened files                                           */
+    private int cntOpenedFiles = 0;                               
+
+    /* process ID                                                       */
+    private int pid;                                              
+
+    /* parent process's ID                                              */
+    private int ppid;                                             
+
+    /* child processes                                                  */
+    private LinkedList<Integer> children                          
+                   = new LinkedList<Integer>();                   
+
+    /* exit status                                                      */
+    private int exitStatus;                                       
+
+    /* user thread that's associated with this process                  */
+    private UThread thread;                                       
+                                   
 }
