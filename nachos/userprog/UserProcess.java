@@ -438,8 +438,32 @@ public class UserProcess {
         }  
     }
     
-    private int handleWrite (int arg1, int ar2, int arg3){
-    	return 0;
+    private int handleWrite (int arg1, int arg2, int arg3){
+        
+        int handle = arg1;    
+        int vaddr = arg2;            
+        int bufsize = arg3;                
+
+        if (handle < 0 || handle > MAXFD                        
+                || fds[handle].file == null)                  
+            return -1;                                               
+
+        FileDescriptor fd = fds[handle];                           
+
+        byte[] buf = new byte[bufsize];                         
+
+        int bytesRead = readVirtualMemory(vaddr, buf);            
+
+        // write file                   
+        int fvar = fd.file.write(fd.position, buf, 0, bytesRead);
+
+        if (fvar < 0) {                                            
+            return -1;                                           
+        }          
+        else {                                          
+            fd.position = fd.position + fvar;               
+            return fvar;     
+        } 
     }
 
     private int handleClose (int arg){
