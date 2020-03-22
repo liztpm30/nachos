@@ -467,7 +467,26 @@ public class UserProcess {
     }
 
     private int handleClose (int arg){
-    	return 0;
+        
+  
+        if (arg < 0 || arg >= MAXFD)                                   
+            return -1;                    
+
+        boolean close = true;       
+
+        FileDescriptor fd = fds[arg];      
+
+        fd.position = 0;                             
+        fd.file.close();                    
+                  
+        if (fd.toRemove) {                                   
+            close = UserKernel.fileSystem.remove(fd.filename);    
+            fd.toRemove = false;                                   
+        }                                                    
+
+        fd.filename = "";                                   
+
+        return close ? 0 : -1;
     }
     
     private int handleUnlink (int arg){
