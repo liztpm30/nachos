@@ -1,4 +1,5 @@
 package nachos.userprog;
+import java.util.LinkedList;
 
 import nachos.machine.*;
 import nachos.threads.*;
@@ -8,11 +9,42 @@ import nachos.userprog.*;
  * A kernel that can support multiple user processes.
  */
 public class UserKernel extends ThreadedKernel {
+	
+	/* global linked list of free physical pages */
+	private static LinkedList<Integer> freePages = new LinkedList<>();
+	
     /**
      * Allocate a new user kernel.
      */
     public UserKernel() {
 	super();
+    }
+    
+    /**
+     * Remove the next available page from the list
+     * @return return the page number
+     */
+   
+    public static Integer getFreePage (){
+    	
+    	Machine.interrupt().disable();
+    	
+    	if(!freePages.isEmpty())
+        	return freePages.remove(0);	/* Removing first node*/
+    	else
+    		return -1;
+    	
+    	
+    }
+    
+    public static void addFreePage (int pnum ){
+    	
+    	Lib.assertTrue(pnum>=0 && pnum < Machine.processor().getNumPhysPages());
+    	Machine.interrupt().disable();
+    	
+    	freePages.addFirst(pnum);
+    	Machine.interrupt().enable();
+    	
     }
 
     /**
