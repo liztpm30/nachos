@@ -378,9 +378,13 @@ public class UserProcess {
 
 	    for (int i=0; i<section.getLength(); i++) {
 		int vpn = section.getFirstVPN()+i;
+		
+		TranslationEntry entry = pageTable[vpn];
+        entry.readOnly = section.isReadOnly();                             
 
-		// for now, just assume virtual addresses=physical addresses
-		section.loadPage(i, vpn);
+        int ppn = entry.ppn;                                                  
+
+		section.loadPage(i, ppn);
 	    }
 	}
 	
@@ -391,6 +395,16 @@ public class UserProcess {
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
     protected void unloadSections() {
+    	
+	    coff.close();                                                        
+
+        for (int i = 0; i < numPages; i++) {                         
+            UserKernel.addFreePage(pageTable[i].ppn);        
+            pageTable[i] = null;                        
+        }                                   
+
+        pageTable = null;    
+
     }    
 
     /**
