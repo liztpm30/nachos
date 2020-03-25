@@ -20,20 +20,24 @@ import java.util.LinkedList;
  * @see	nachos.network.NetProcess
  */
 public class UserProcess {
+	
+	
+	
     /**
      * Allocate a new process.
      */
-    public UserProcess() {
+    public UserProcess(){
     	
-    //Creating file descriptors
+    	
+    	//Creating file descriptors
     	for (int i=0; i<MAXFD; i++) {                               
             fds[i] = new FileDescriptor();                                 
-       } 
-    	
-	int numPhysPages = Machine.processor().getNumPhysPages();
-	pageTable = new TranslationEntry[numPhysPages];
-	for (int i=0; i<numPhysPages; i++)
-	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+       }
+   
+		int numPhysPages = Machine.processor().getNumPhysPages();
+		pageTable = new TranslationEntry[numPhysPages];
+		for (int i=0; i<numPhysPages; i++)
+		    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
     
     /**
@@ -93,19 +97,50 @@ public class UserProcess {
      * @return	the string read, or <tt>null</tt> if no null terminator was
      *		found.
      */
-    public String readVirtualMemoryString(int vaddr, int maxLength) {
-	Lib.assertTrue(maxLength >= 0);
+    public int readVirtualMemoryString(int vaddr, int maxLength, byte[] data, int offset) {
+	
+    	Lib.assertTrue(maxLength >= 0);
+    	
+    	Processor pro = Machine.processor();
 
-	byte[] bytes = new byte[maxLength+1];
+		byte[] bytes = pro.getMemory();
+	
+		int bytesRead = readVirtualMemory(vaddr, bytes);
+		
+	       
+	    int virtualpn = pro.pageFromAddress(vaddr);                            
+	    int addressOffset = pro.offsetFromAddress(vaddr);  
+	    
+	    if (virtualpn >= numPages) {          
+	        return -1;        
+	    }                                                                    
 
-	int bytesRead = readVirtualMemory(vaddr, bytes);
+		TranslationEntry entry = null;                            
+	    entry = pageTable[virtualpn];                          
 
-	for (int length=0; length<bytesRead; length++) {
-	    if (bytes[length] == 0)
-		return new String(bytes, 0, length);
-	}
+	    if (pageTable[virtualpn].valid == false) {
+	        return -1;                                                         
+	    }                           
 
-	return null;
+		entry.used = true;                                     
+
+	    int ppn = entry.ppn;             
+		int paddr = (ppn*pageSize) + addressOffset;                       
+	    Lib.debug(dbgProcess,                                     
+	                "[UserProcess.readVirtualMemory] ppn " + ppn   
+	                + ",paddr: " + paddr);                          
+
+	    if (ppn < 0 || ppn >= pro.getNumPhysPages())  {                
+	        Lib.debug(dbgProcess,                                           
+	                "\t\t UserProcess.readVirtualMemory(): bad ppn " + ppn);  
+	        return 0;                                                        
+	    }             
+
+		int amount = Math.min(maxLength, bytes.length-paddr);
+		System.arraycopy(bytes, paddr, data, offset, amount);
+
+		return amount;
+
     }
 
     /**
@@ -256,6 +291,17 @@ public class UserProcess {
 
 	// and finally reserve 1 page for arguments
 	numPages++;
+	
+	/* Initializing the user page table */
+    pageTable = new TranslationEntry [numPages];
+    int freePage;
+    
+    for (int i=0; i<numPages; i++){
+    	freePage = UserKernel.getFreePage();
+    	pageTable[i] = new TranslationEntry(i,freePage,true,false,false,false);
+    }
+    
+	
 
 	if (!loadSections())
 	    return false;
@@ -687,6 +733,6 @@ public class UserProcess {
     private int exitStatus;                                       
 
     /* user thread that's associated with this process                  */
-    private UThread thread;                                       
+    private UThread thread;  
                                    
 }
