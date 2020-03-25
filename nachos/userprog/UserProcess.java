@@ -214,19 +214,41 @@ public class UserProcess {
      */
     public int writeVirtualMemory(int vaddr, byte[] data, int offset,
 				  int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+    	
+    	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-	byte[] memory = Machine.processor().getMemory();
-	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
+        Processor pro = Machine.processor();  
+    	byte[] bytes = Machine.processor().getMemory();
+        int virtualpn = pro.pageFromAddress(vaddr);                  
+        int addressOffset = pro.offsetFromAddress(vaddr);
 
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(data, offset, memory, vaddr, amount);
+        
+        if (virtualpn >= numPages) {    
+            return -1;                                    
+        }           
 
-	return amount;
-    }
+    	TranslationEntry te = null;
+        te = pageTable[virtualpn];                  
+
+        if (te.readOnly) { 
+            return -1;                                      
+        }                                                           
+
+    	te.used = true;                                        
+    	te.dirty = true;                                  
+        int ppn = te.ppn;                                
+    	int paddr = (ppn * pageSize) + addressOffset;         
+
+        if (ppn < 0 || ppn >= pro.getNumPhysPages())  {  
+            return 0;                                           
+        }                                                
+
+    	int amount = Math.min(length, bytes.length - paddr);
+    	System.arraycopy(data, offset, bytes, paddr, amount); 
+
+    	return amount;
+        }
+
 
     /**
      * Load the executable with the specified name into this process, and
@@ -301,6 +323,12 @@ public class UserProcess {
     	pageTable[i] = new TranslationEntry(i,freePage,true,false,false,false);
     }
     
+
+    pageTable = new TranslationEntry[numPages];       
+    for (int i = 0; i < numPages; i++) {                          
+        int ppn = UserKernel.getFreePage();               
+        pageTable[i] =  new TranslationEntry(i, ppn, true, false, false, false);
+    }       
 	
 
 	if (!loadSections())
