@@ -97,9 +97,52 @@ public class UserProcess {
      * @return	the string read, or <tt>null</tt> if no null terminator was
      *		found.
      */
-    public int readVirtualMemoryString(int vaddr, int maxLength, byte[] data, int offset) {
+    public String readVirtualMemoryString(int vaddr, int maxLength) {
 	
     	Lib.assertTrue(maxLength >= 0);
+
+    	byte[] bytes = new byte[maxLength+1];
+
+    	int bytesRead = readVirtualMemory(vaddr, bytes);
+
+    	for (int length=0; length<bytesRead; length++) {
+    	    if (bytes[length] == 0)
+    		return new String(bytes, 0, length);
+    	}
+
+    	return null;
+
+    }
+
+    /**
+     * Transfer data from this process's virtual memory to all of the specified
+     * array. Same as <tt>readVirtualMemory(vaddr, data, 0, data.length)</tt>.
+     *
+     * @param	vaddr	the first byte of virtual memory to read.
+     * @param	data	the array where the data will be stored.
+     * @return	the number of bytes successfully transferred.
+     */
+    public int readVirtualMemory(int vaddr, byte[] data) {
+	return readVirtualMemory(vaddr, data, 0, data.length);
+    }
+
+    /**
+     * Transfer data from this process's virtual memory to the specified array.
+     * This method handles address translation details. This method must
+     * <i>not</i> destroy the current process if an error occurs, but instead
+     * should return the number of bytes successfully copied (or zero if no
+     * data could be copied).
+     *
+     * @param	vaddr	the first byte of virtual memory to read.
+     * @param	data	the array where the data will be stored.
+     * @param	offset	the first byte to write in the array.
+     * @param	length	the number of bytes to transfer from virtual memory to
+     *			the array.
+     * @return	the number of bytes successfully transferred.
+     */
+    public int readVirtualMemory(int vaddr, byte[] data, int offset,
+				 int length) {
+    	Lib.assertTrue(length >= 0);
     	
     	Processor pro = Machine.processor();
 
@@ -136,53 +179,10 @@ public class UserProcess {
 	        return 0;                                                        
 	    }             
 
-		int amount = Math.min(maxLength, bytes.length-paddr);
+		int amount = Math.min(length, bytes.length-paddr);
 		System.arraycopy(bytes, paddr, data, offset, amount);
 
 		return amount;
-
-    }
-
-    /**
-     * Transfer data from this process's virtual memory to all of the specified
-     * array. Same as <tt>readVirtualMemory(vaddr, data, 0, data.length)</tt>.
-     *
-     * @param	vaddr	the first byte of virtual memory to read.
-     * @param	data	the array where the data will be stored.
-     * @return	the number of bytes successfully transferred.
-     */
-    public int readVirtualMemory(int vaddr, byte[] data) {
-	return readVirtualMemory(vaddr, data, 0, data.length);
-    }
-
-    /**
-     * Transfer data from this process's virtual memory to the specified array.
-     * This method handles address translation details. This method must
-     * <i>not</i> destroy the current process if an error occurs, but instead
-     * should return the number of bytes successfully copied (or zero if no
-     * data could be copied).
-     *
-     * @param	vaddr	the first byte of virtual memory to read.
-     * @param	data	the array where the data will be stored.
-     * @param	offset	the first byte to write in the array.
-     * @param	length	the number of bytes to transfer from virtual memory to
-     *			the array.
-     * @return	the number of bytes successfully transferred.
-     */
-    public int readVirtualMemory(int vaddr, byte[] data, int offset,
-				 int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
-
-	byte[] memory = Machine.processor().getMemory();
-	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
-
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(memory, vaddr, data, offset, amount);
-
-	return amount;
     }
 
     /**
