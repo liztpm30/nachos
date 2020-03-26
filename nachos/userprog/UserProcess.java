@@ -6,6 +6,7 @@ import nachos.userprog.*;
 
 import java.io.EOFException;
 import java.util.LinkedList;
+import java.util.Iterator;
 
 /**
  * Encapsulates the state of a user process that is not contained in its
@@ -606,6 +607,144 @@ public class UserProcess {
 
         return unlinked ? 0 : -1;  
     }
+    
+    
+    private int handleExec(int file, int arg0, int arg1) {
+    	
+    	String fname, coff, args[];
+    	byte aux[];
+    	int bytes,address;
+    	UserProcess cp;
+    	boolean output;
+
+        if (argc < 1) {
+            return -1;         
+        }                                                          
+
+        fname = readVirtualMemoryString(file, MAXSTRLEN); 
+        
+        if (fname == null) {
+            return -1;          
+        }
+        
+        
+        coff = fname.substring(fname.length()-4, fname.length());
+        
+        
+        if (coff.equals(".coff")) {    
+            return -1;      
+        }          
+        
+        
+        args = new String[arg0];  
+        aux = new byte[4]; 
+        
+        
+        for (int i = 0; i < arg0; i++) { 
+  
+            bytes = readVirtualMemory(arg1+i*4, aux);
+            
+            if (bytes != 4) {     
+                return -1;   
+            }  
+
+            address = Lib.bytesToInt(aux, 0); 
+            args[i] = readVirtualMemoryString(address, MAXSTRLEN); 
+        }          
+
+        
+        cp = UserProcess.newUserProcess();
+        
+        cp.ppid = this.pid; 
+        
+        this.children.add(cp.pid);    
+        
+        output = cp.execute(fname, args); 
+
+        if (output) {  
+            return cp.pid;          
+        }              
+        else {            
+            return -1;        
+        }                         
+    } 
+    
+    private int handleJoin(int cpid, int status) {
+    	
+        
+        boolean cflag = false;  
+        int aux = 0, numbytes;
+        Iterator<Integer> iterator = this.children.iterator(); 
+        UserProcess pro;
+        byte bytes[];
+        
+        while(iterator.hasNext()) {
+            aux = iterator.next();                            
+            if (aux == cpid) {  
+            	iterator.remove();   
+                cflag = true;       
+                break;            
+            }   
+        }     
+              
+        if (cflag == false) {                             
+            return -1; 
+        } 
+ 
+        pro = UserKernel.getProcessByID(cpid);
+
+        if (pro == null) {                        
+            return -2;   
+        }  
+        
+        pro.thread.join(); 
+        
+        UserKernel.removeProcess(cpid); 
+
+        bytes = new byte[4]; 
+        bytes=Lib.bytesFromInt(pro.exitStatus); 
+        numbytes = writeVirtualMemory(status, bytes); 
+        
+        if (numbytes != 4)   
+            return 1; 
+        else     
+           return 0;  
+    } 
+    
+    private void handleExit(int status) {
+    	
+    	int cpid;
+    	UserProcess pro;
+
+                 
+        for (int i = 0; i < MAXFD; i++) {  
+            if (fds[i].file != null)  
+                handleClose(i);   
+        }  
+
+
+        while (children != null && !children.isEmpty())  {
+        	
+            cpid = children.removeFirst(); 
+            pro = UserKernel.getProcessByID(cpid);
+            pro.ppid = ROOT;
+            
+        } 
+
+        this.exitStatus = exitStatus;
+        
+        this.unloadSections();
+
+
+        if (this.pid == ROOT) {
+            Kernel.kernel.terminate();
+        }             
+        else {   
+            KThread.currentThread().finish();   
+        }   
+
+        Lib.assertNotReached();  
+    }    
 
     private static final int
     
@@ -664,6 +803,14 @@ public class UserProcess {
 		return handleClose(a0);
 	case syscallUnlink:
 		return handleUnlink(a0);
+	case syscallExec:
+		return handleExec(a0, a1, a2);
+	case syscallJoin:
+		return handleJoin(a0, a1);
+	case syscallExit:
+		handleExit(a0);
+		Lib.assertNotReached();
+		return 0;
 
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);

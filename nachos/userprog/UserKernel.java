@@ -1,5 +1,6 @@
 package nachos.userprog;
 import java.util.LinkedList;
+import java.util.HashMap;
 
 import nachos.machine.*;
 import nachos.threads.*;
@@ -9,9 +10,6 @@ import nachos.userprog.*;
  * A kernel that can support multiple user processes.
  */
 public class UserKernel extends ThreadedKernel {
-	
-	/* global linked list of free physical pages */
-	private static LinkedList<Integer> freePages = new LinkedList<>();
 	
     /**
      * Allocate a new user kernel.
@@ -36,6 +34,24 @@ public class UserKernel extends ThreadedKernel {
     	
     	
     }
+    
+    
+    public static UserProcess getProcessByID(int pid) {
+        return pmap.get(pid);
+    }
+    
+    public static UserProcess removeProcess(int pid) { 
+    	
+        UserProcess pro;  
+        
+        Machine.interrupt().disable();  
+        
+        pro = pmap.remove(pid); 
+
+        Machine.interrupt().enabled();  
+
+        return pro;  
+    }  
     
     public static void addFreePage (int pnum ){
     	
@@ -144,4 +160,11 @@ public class UserKernel extends ThreadedKernel {
 
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
+    
+    /* global linked list of free physical pages */
+	private static LinkedList<Integer> freePages = new LinkedList<>();
+	
+    private static int nextPid = 0;  
+
+    private static HashMap<Integer, UserProcess> pmap = new HashMap<Integer, UserProcess>(); 
 }
