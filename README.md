@@ -23,7 +23,7 @@ Andres Gonzalez Mejias (panther ID: 6111238)
 
 We were able to successfully complete all the tasks as per the requirements. The team was very collaborative with one another and we all provided help to each other until completion. We arranged multiple meetings throughout the project and had positive results by being able to complete the project for full functionality.
 
-We assigned two tasks to each of the members. Since we were a team of 4 and there were 3 tasks, we decided to do task 1 together which was the more extensive one. Tasks 2 and 3 were completed by sub-teams. 
+We assigned two tasks to each of the members. Since we were a team of four and there were three tasks, we decided to do task 1 together which was the more extensive one. Tasks 2 and 3 were completed by sub-teams. 
 
 **Accomplishments per member:**
 
